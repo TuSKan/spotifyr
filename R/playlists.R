@@ -14,7 +14,13 @@ get_user_playlists <- function(user_id, ...){
   response <- GET(url = glue('{USER_URL}/{user_id}/playlists'),
                   add_headers(Authorization = glue('Bearer {access_token}')),
                   query = list(...))
-  get_response_content(response)
+  content <- get_response_content(response)
+
+  df <- dplyr::bind_cols( content$items %>% purrr::map_df(magrittr::extract, c("name","id","public","collaborative","uri","href")),
+                          content$items %>% purrr::map("owner") %>% purrr::map_df(magrittr::extract, c("id")) %>% purrr::set_names("owner.id"),
+                          content$items %>% purrr::map("tracks") %>% purrr::map_df(magrittr::extract, c("total")) %>% purrr::set_names("tracks.total"))
+
+  df[c("name","id","owner.id","tracks.total","public","collaborative","uri","href")]
 }
 
 
@@ -35,7 +41,17 @@ get_playlist <- function(user_id, playlist_id,...){
   response <- GET(url = glue('{USER_URL}/{user_id}/playlists/{playlist_id}'),
                   add_headers(Authorization = glue('Bearer {access_token}')),
                   query = list(...))
-  get_response_content(response)
+  content <- get_response_content(response)
+  df <- dplyr::bind_cols( content %>% purrr::map(1L) %>%
+                      purrr::flatten() %>%
+                      tibble::as_tibble() %>%
+                      magrittr::extract(c("name","id","description","public","collaborative")),
+
+                    tibble::tibble(owner.id = content$owner$id,
+                                   tracks.total = length(content$tracks$items),
+                                   followers.total = content$followers$total)
+                    )
+  df[c("name","id","description","tracks.total","owner.id","followers.total","public","collaborative")]
 }
 
 
@@ -56,7 +72,12 @@ get_playlist_tracks <- function(user_id,playlist_id,...){
   response <- GET(url = glue('{USER_URL}/{user_id}/playlists/{playlist_id}/tracks/'),
                   add_headers(Authorization = glue('Bearer {access_token}')),
                   query = list(...))
-  get_response_content(response)
+  content <- get_response_content(response)
+  content
+  dplyr::bind_cols( content$items %>%  purrr::map("track") %>% purrr::map_df(magrittr::extract, c("name","id","track_number","disc_number","duration_ms","popularity","explicit")),
+                    content$items %>%  purrr::map("track") %>% purrr::map("album") %>% purrr::map_df(magrittr::extract, c("name","id")) %>% purrr::set_names(c("album.name", "album.id")),
+                    content$items %>%  purrr::map("track") %>% purrr::map("artists") %>% purrr::map_df(bind_cols) %>% select(matches("name[0-9]?|id[0-9]?")) %>% purrr::set_names(paste0("artists.", colnames(.)) )
+  )
 }
 
 

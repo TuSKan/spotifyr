@@ -16,9 +16,10 @@
 #' search_spotify(q = 'heavy metal', type = 'track')
 search_spotify <- function(q, type = c('artist', 'album', 'playlist', 'track'), ...){
   type <- match.arg(type)
+  q_fix <- ifelse(type == 'track', paste0('track:',q),q)
   response <- GET(url = SEARCH_URL,
                   add_headers(Authorization = glue('Bearer {access_token}')),
-                  query = list(q = q, type = type,...))
+                  query = list(q = q_fix, type = type,...))
   get_response_content(response)
 }
 
